@@ -7,3 +7,4 @@ groq
 pyngrok
 fpdf
 selenium
+python-dotenv
