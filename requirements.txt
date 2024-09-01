@@ -9,3 +9,4 @@ fpdf
 selenium
 python-dotenv
 markdown2
+reportlab
