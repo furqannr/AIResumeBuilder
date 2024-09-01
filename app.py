@@ -12,7 +12,6 @@ from models.success_analyzer_model import application_success_analyer
 
 load_dotenv()
 
-
 # Set up API key environment variable
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 # Initialize Groq client
@@ -25,12 +24,31 @@ st.subheader('Automate your professional career with us')
 # Choose Operation
 st.write('<h3 style="font-size:20px">Choose Operation</h3>', unsafe_allow_html=True)
 
+import chromedriver_autoinstaller
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+
+# Install ChromeDriver automatically
+chromedriver_autoinstaller.install()
+
+options = Options()
+options.add_argument("--headless")  # Use headless mode
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+
+driver = webdriver.Chrome(options=options)
+
+
+
+
 # Initialize session state for operation
 if 'operation' not in st.session_state:
     st.session_state.operation = None
 
 # Layout for operation selection buttons
 col1, col2 = st.columns(2)
+
 
 with col1:    
     resource_creator = st.button('Job Resource Creator')
@@ -134,6 +152,7 @@ elif st.session_state.operation == 'automate_application':
 
         resume_pdf_generated = save_to_pdf(st.session_state['resume'])
 
+
         # Apply Automatically
         if st.button("Apply Automatically"):
             if 'resume' in st.session_state:
@@ -141,3 +160,5 @@ elif st.session_state.operation == 'automate_application':
                 job_link = jobs[0]['link']
                 apply_to_job(job_link, resume)
                 st.write("Applied to the job successfully!")
+
+driver.quit()  # Don't forget to close the browser after scraping

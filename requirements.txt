@@ -11,3 +11,4 @@ python-dotenv
 markdown2
 reportlab
 beautifulsoup4
+chromedriver-autoinstaller
