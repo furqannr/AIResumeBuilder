@@ -1,183 +1,141 @@
 import streamlit as st
 import os
 from groq import Groq
-from docx import Document
-from fpdf import FPDF
-import pandas as pd
-from datasets import load_dataset
-import requests
-from bs4 import BeautifulSoup
 
+from helper_functions.save_to_pdf import save_to_pdf
+from helper_functions.scrape_jobs import scrape_jobs
+from helper_functions.apply_to_job import apply_to_job
+
+from models.resume_creator_model import resume_creator_model
+from models.cv_creator_model import cv_creator_model
+from models.success_analyzer_model import application_success_analyer
+
+
+# Set up API key environment variable
 os.environ["GROQ_API_KEY"] = "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"
 # Initialize Groq client
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Streamlit app
-st.title("Professional Resume Builder")
+# Streamlit App Title and Subtitle
+st.title('AI Career Companion')
+st.subheader('Automate your professional career with us')
 
-# Initialize session state for storing resume text
-if 'resume_text' not in st.session_state:
-    st.session_state.resume_text = ""
-if 'edited_resume' not in st.session_state:
-    st.session_state.edited_resume = ""
+# Choose Operation
+st.write('<h3 style="font-size:20px">Choose Operation</h3>', unsafe_allow_html=True)
 
-# Document Upload and Text Extraction
-st.header("Document Upload")
-uploaded_file = st.file_uploader("Upload a PDF or Word document", type=["pdf", "docx"])
+# Initialize session state for operation
+if 'operation' not in st.session_state:
+    st.session_state.operation = None
 
-if uploaded_file is not None:
-    if uploaded_file.type == "application/pdf":
-        from PyPDF2 import PdfReader
-        reader = PdfReader(uploaded_file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text()
-    elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        doc = Document(uploaded_file)
-        text = "\n".join([p.text for p in doc.paragraphs])
-    
-    st.text_area("Extracted Text", text, height=300)
+# Layout for operation selection buttons
+col1, col2 = st.columns(2)
 
-# Resume Generation Using Meta LLaMA 3 70B Model
-st.header("Resume Generation")
+with col1:    
+    resource_creator = st.button('Job Resource Creator')
+    if resource_creator:
+        st.session_state.operation = 'resource-creator'
 
-if st.button("Generate Resume"):
-    if uploaded_file:
-        response = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Generate a professional resume based on the following text: {text}"
-                }
-            ],
-            model="llama3-70b-8192",
-        )
-        st.session_state.resume_text = response.choices[0].message.content
-        st.text_area("Generated Resume", st.session_state.resume_text, height=300)
-    else:
-        st.warning("Please upload a document first.")
+with col2:
+    automate_application = st.button('Automate Application')
+    if automate_application:
+        st.session_state.operation = 'automate_application'
 
-# Resume Preview and Real-Time Editing
-st.header("Resume Preview and Editing")
+# Display content based on the selected operation
+if st.session_state.operation == 'resource-creator':
+    st.write('<h4 style="font-size:19px">Upload your profile, job description, and our AI model will check the chances of getting an interview and create a resume and CV specifically for that job opening.</h4>', unsafe_allow_html=True)
 
-# Allow users to make real-time edits
-if st.session_state.resume_text:  # Check if resume_text is not empty
-    st.session_state.edited_resume = st.text_area("Edit Resume", st.session_state.resume_text, height=300)
-else:
-    st.session_state.edited_resume = ""
+    # Input for user profile
+    st.session_state.user_profile = st.text_area(
+        "Enter your profile",
+        placeholder="Tell us about yourself and your professional background. The more detailed you are, the better we will perform",
+        value=st.session_state.get('user_profile', "")
+    )
 
-# PDF Download and Copy Management
-st.header("Download and Save Resume")
+    # Input for job description
+    st.session_state.job_description = st.text_area(
+        "Enter job description",
+        placeholder="Enter the job description you want to apply for",
+        value=st.session_state.get('job_description', "")
+    )
 
-if st.button("Download Resume"):
-    if st.session_state.edited_resume:  # Check if edited_resume is not empty
-        pdf = FPDF()
-        pdf.add_page()
+    create_button = st.button('Create Resume and CV')
 
-        # Add a Unicode font
-        pdf.add_font("DejaVu", "", "/path/to/DejaVuSans.ttf", uni=True)  # Specify the correct path to the font file
-        pdf.set_font("DejaVu", '', 24)
-        pdf.cell(0, 10, "LISANDRO MILANESI", ln=True, align='C')
-        pdf.set_font("DejaVu", '', 12)
-        pdf.cell(0, 10, "716-555-0100 | lisandro@example.com | www.interestingsite.com", ln=True, align='C')
-        pdf.ln(10)  # Line break
+    if create_button:
+        if st.session_state.user_profile and st.session_state.job_description:
+            with st.spinner('Creating resume and CV for your job application...'):
+                resume_response = resume_creator_model(st.session_state.user_profile, st.session_state.job_description, client)
+                cv_response = cv_creator_model(st.session_state.user_profile, st.session_state.job_description, client)
 
-        # Add Profile section
-        pdf.set_font("DejaVu", '', 16)
-        pdf.cell(0, 10, "PROFILE", ln=True)
-        pdf.set_font("DejaVu", '', 12)
-        pdf.multi_cell(0, 10, "Assistant Hotel Manager with a warm and friendly demeanor. Skilled at conflict resolution. Team builder who is acutely attentive to employee and guest needs. Punctual problem solver and avid multitasker. Track record of being an essential part of the management team and instrumental in providing effective solutions that produce immediate impact and contribute to the establishment’s long-term success.")
-        pdf.ln(5)  # Line break
+            st.subheader('Generated Resume')
+            st.write(resume_response)
+            st.subheader('Generated CV')
+            st.write(cv_response)
 
-        # Work Experience
-        pdf.set_font("DejaVu", '', 16)
-        pdf.cell(0, 10, "WORK EXPERIENCE", ln=True)
-        pdf.set_font("DejaVu", '', 12)
-        pdf.multi_cell(0, 10, st.session_state.edited_resume)  # Use the edited_resume text directly
-        pdf.ln(5)  # Line break
+            with st.spinner('Analyzing candidate application'):
+                analysis_response = application_success_analyer(cv_response, resume_response, st.session_state.job_description, client)
+            st.subheader('Application analysis')
+            st.write(analysis_response)
 
-        # Key Skills
-        pdf.set_font("DejaVu", '', 16)
-        pdf.cell(0, 10, "KEY SKILLS", ln=True)
-        pdf.set_font("DejaVu", '', 12)
-        pdf.multi_cell(0, 10, "\n".join([
-            "• Budget management",
-            "• Excellent listener",
-            "• Friendly, courteous, & service oriented",
-            "• Poised under pressure",
-            "• Staff training & coaching",
-            "• Recruiting & hiring talent",
-            "• Quality assurance",
-            "• Solid written & verbal communicator"
-        ]))
-        pdf.ln(5)  # Line break
+            with st.spinner('Converting to PDF...'):
+                resume_pdf = save_to_pdf(resume_response)
+                cv_pdf = save_to_pdf(cv_response)
 
-        # Education
-        pdf.set_font("DejaVu", '', 16)
-        pdf.cell(0, 10, "EDUCATION", ln=True)
-        pdf.set_font("DejaVu", '', 12)
-        pdf.multi_cell(0, 10, "Bachelor of Science in Hospitality Management\nBellows College, June 20XX")
-        pdf.ln(5)  # Line break
-
-        pdf_output_path = "/tmp/resume.pdf"
-        pdf.output(pdf_output_path)
-        st.success("Resume PDF generated!")
-        with open(pdf_output_path, "rb") as f:
-            st.download_button(
-                label="Download PDF",
-                data=f,
+            resume_downloader = st.download_button(
+                label="Download Resume",
+                data=resume_pdf,
                 file_name="resume.pdf",
                 mime="application/pdf"
             )
-    else:
-        st.warning("Please generate or edit the resume first.")
-
-# Job Search Integration
-st.header("Job Search")
-
-job_title = st.text_input("Enter Job Title")
-
-if st.button("Search Jobs"):
-    if job_title:
-        url = f"https://api.indeed.com/ads/apisearch?q={job_title}&format=json&v=2"
-        response = requests.get(url)
-        jobs = response.json().get("results", [])
-        if jobs:
-            job_df = pd.DataFrame(jobs)
-            st.write(job_df)
-            job_df.to_excel("/tmp/job_list.xlsx", index=False)
-            with open("/tmp/job_list.xlsx", "rb") as f:
-                st.download_button(
-                    label="Download Job List",
-                    data=f,
-                    file_name="job_list.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+            cv_downloader = st.download_button(
+                label="Download CV",
+                data=cv_pdf,
+                file_name="resume.pdf",
+                mime="application/pdf"
+            )
         else:
-            st.warning("No jobs found.")
-    else:
-        st.warning("Please enter a job title.")
+            st.error('Please enter both user profile and job description')
 
-# Resume Customization Based on Job Postings
-st.header("Resume Customization")
+elif st.session_state.operation == 'automate_application':
+    st.write('<h4 style="font-size:19px">Enter the job title you want to search for, and our AI model will apply on your behalf.</h4>', unsafe_allow_html=True)
 
-# Example usage of dataset integration for resume design
-designs_dataset = load_dataset("Kunling/layoutlm_resume_data")
+    # Inputs for the job search
+    user_profile = st.text_area(
+        "Enter your profile",
+        placeholder="Tell us about yourself and your professional background. The more detailed you are, the better we will perform",
+    )
 
-# Inspect dataset columns and use accordingly
-st.write("Available columns:", designs_dataset['train'].column_names)
-sample_data = designs_dataset['train'].select(range(5))
-st.write("Sample data:", sample_data)
+    job_title = st.text_input("Enter the job title", placeholder="e.g., Data Scientist")
+    location = st.text_input("Enter the job location", placeholder="e.g., New York")
 
-# Assuming you need a column to work with, adjust based on actual column names
-# design_names = designs_dataset['train']['design_name']
-# selected_design = st.selectbox("Choose a Resume Design", design_names)
+    search_button = st.button('Search Jobs')
 
-# Automated Job Application
-st.header("Automated Job Application")
+    # Use session_state to store job search results
+    if search_button and job_title and location:
+        jobs = scrape_jobs(job_title, location)
+        st.session_state['jobs'] = jobs  # Store jobs in session state
+        st.write(f"Found {len(jobs)} jobs for {job_title} in {location}")
+        
+    # Display jobs if available in session state
+    if 'jobs' in st.session_state:
+        jobs = st.session_state['jobs']
+        for job in jobs:
+            st.write(f"[{job['title']}]({job['link']})")
+        
+        # Generate Resume
+        if st.button("Generate Resume"):
+            if jobs:
+                job_details = jobs[0]
+                resume = resume_creator_model(user_profile, job_details, client)
+                st.write("Generated Resume:")
+                st.text(resume)
+                st.session_state['resume'] = resume  
 
-# Placeholder for automated application logic
-st.write("Automated job application is under development.")
+        resume_pdf_generated = save_to_pdf(st.session_state['resume'])
 
-# Set up environment variables and API keys
-os.environ['GROQ_API_KEY'] = 'your_groq_api_key_here'
+        # Apply Automatically
+        if st.button("Apply Automatically"):
+            if 'resume' in st.session_state:
+                resume = resume_pdf_generated
+                job_link = jobs[0]['link']
+                apply_to_job(job_link, resume)
+                st.write("Applied to the job successfully!")

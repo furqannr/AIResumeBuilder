@@ -6,3 +6,4 @@ datasets
 groq
 pyngrok
 fpdf
+selenium
