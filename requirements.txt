@@ -10,3 +10,4 @@ selenium
 python-dotenv
 markdown2
 reportlab
+beautifulsoup4
