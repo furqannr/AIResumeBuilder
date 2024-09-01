@@ -15,6 +15,12 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 # Streamlit app
 st.title("Professional Resume Builder")
 
+# Initialize session state for storing resume text
+if 'resume_text' not in st.session_state:
+    st.session_state.resume_text = ""
+if 'edited_resume' not in st.session_state:
+    st.session_state.edited_resume = ""
+
 # Document Upload and Text Extraction
 st.header("Document Upload")
 uploaded_file = st.file_uploader("Upload a PDF or Word document", type=["pdf", "docx"])
@@ -36,7 +42,7 @@ if uploaded_file is not None:
 st.header("Resume Generation")
 
 if st.button("Generate Resume"):
-    if text:
+    if uploaded_file:
         response = client.chat.completions.create(
             messages=[
                 {
@@ -46,8 +52,8 @@ if st.button("Generate Resume"):
             ],
             model="llama3-70b-8192",
         )
-        resume_text = response.choices[0].message.content
-        st.text_area("Generated Resume", resume_text, height=300)
+        st.session_state.resume_text = response.choices[0].message.content
+        st.text_area("Generated Resume", st.session_state.resume_text, height=300)
     else:
         st.warning("Please upload a document first.")
 
@@ -55,21 +61,64 @@ if st.button("Generate Resume"):
 st.header("Resume Preview and Editing")
 
 # Allow users to make real-time edits
-if 'resume_text' in locals():
-    edited_resume = st.text_area("Edit Resume", resume_text, height=300)
+if st.session_state.resume_text:  # Check if resume_text is not empty
+    st.session_state.edited_resume = st.text_area("Edit Resume", st.session_state.resume_text, height=300)
 else:
-    edited_resume = ""
+    st.session_state.edited_resume = ""
 
 # PDF Download and Copy Management
 st.header("Download and Save Resume")
 
 if st.button("Download Resume"):
-    if edited_resume:
+    if st.session_state.edited_resume:  # Check if edited_resume is not empty
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_font("Arial", size=12)
-        pdf.multi_cell(0, 10, edited_resume)
+
+        # Add a Unicode font
+        pdf.add_font("DejaVu", "", "/path/to/DejaVuSans.ttf", uni=True)  # Specify the correct path to the font file
+        pdf.set_font("DejaVu", '', 24)
+        pdf.cell(0, 10, "LISANDRO MILANESI", ln=True, align='C')
+        pdf.set_font("DejaVu", '', 12)
+        pdf.cell(0, 10, "716-555-0100 | lisandro@example.com | www.interestingsite.com", ln=True, align='C')
+        pdf.ln(10)  # Line break
+
+        # Add Profile section
+        pdf.set_font("DejaVu", '', 16)
+        pdf.cell(0, 10, "PROFILE", ln=True)
+        pdf.set_font("DejaVu", '', 12)
+        pdf.multi_cell(0, 10, "Assistant Hotel Manager with a warm and friendly demeanor. Skilled at conflict resolution. Team builder who is acutely attentive to employee and guest needs. Punctual problem solver and avid multitasker. Track record of being an essential part of the management team and instrumental in providing effective solutions that produce immediate impact and contribute to the establishment’s long-term success.")
+        pdf.ln(5)  # Line break
+
+        # Work Experience
+        pdf.set_font("DejaVu", '', 16)
+        pdf.cell(0, 10, "WORK EXPERIENCE", ln=True)
+        pdf.set_font("DejaVu", '', 12)
+        pdf.multi_cell(0, 10, st.session_state.edited_resume)  # Use the edited_resume text directly
+        pdf.ln(5)  # Line break
+
+        # Key Skills
+        pdf.set_font("DejaVu", '', 16)
+        pdf.cell(0, 10, "KEY SKILLS", ln=True)
+        pdf.set_font("DejaVu", '', 12)
+        pdf.multi_cell(0, 10, "\n".join([
+            "• Budget management",
+            "• Excellent listener",
+            "• Friendly, courteous, & service oriented",
+            "• Poised under pressure",
+            "• Staff training & coaching",
+            "• Recruiting & hiring talent",
+            "• Quality assurance",
+            "• Solid written & verbal communicator"
+        ]))
+        pdf.ln(5)  # Line break
+
+        # Education
+        pdf.set_font("DejaVu", '', 16)
+        pdf.cell(0, 10, "EDUCATION", ln=True)
+        pdf.set_font("DejaVu", '', 12)
+        pdf.multi_cell(0, 10, "Bachelor of Science in Hospitality Management\nBellows College, June 20XX")
+        pdf.ln(5)  # Line break
+
         pdf_output_path = "/tmp/resume.pdf"
         pdf.output(pdf_output_path)
         st.success("Resume PDF generated!")
