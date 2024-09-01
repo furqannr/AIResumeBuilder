@@ -8,3 +8,4 @@ pyngrok
 fpdf
 selenium
 python-dotenv
+markdown2
