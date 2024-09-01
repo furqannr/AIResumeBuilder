@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 from groq import Groq
-
+from dotenv import load_dotenv
 from helper_functions.save_to_pdf import save_to_pdf
 from helper_functions.scrape_jobs import scrape_jobs
 from helper_functions.apply_to_job import apply_to_job
@@ -10,9 +10,11 @@ from models.resume_creator_model import resume_creator_model
 from models.cv_creator_model import cv_creator_model
 from models.success_analyzer_model import application_success_analyer
 
+load_dotenv()
+
 
 # Set up API key environment variable
-os.environ["GROQ_API_KEY"] = "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"
+GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 # Initialize Groq client
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
