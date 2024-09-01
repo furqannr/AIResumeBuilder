@@ -44,7 +44,7 @@ if st.button("Generate Resume"):
                     "content": f"Generate a professional resume based on the following text: {text}"
                 }
             ],
-            model="meta-llama-3-70b",
+            model="llama3-70b-8192",
         )
         resume_text = response.choices[0].message.content
         st.text_area("Generated Resume", resume_text, height=300)

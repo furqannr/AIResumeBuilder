@@ -1,0 +1,8 @@
+streamlit
+pdfplumber
+python-docx
+PyMuPDF
+datasets
+groq
+pyngrok
+fpdf
